@@ -34,6 +34,17 @@ router.get('/', async (req, res) => {
   } catch (err) { return res.status(500).json({ error: err.message }); }
 });
 
+router.get('/stats', async (req, res) => {
+  try {
+    const [empCount] = await pool.execute('SELECT COUNT(*) as total FROM Employee');
+    const [deptCount] = await pool.execute('SELECT COUNT(*) as total FROM Department');
+    const [statusRows] = await pool.execute('SELECT EmpStatus, COUNT(*) as count FROM Employee GROUP BY EmpStatus');
+    const statusCounts = {};
+    for (const r of statusRows) statusCounts[r.EmpStatus] = r.count;
+    return res.json({ totalEmployees: empCount[0].total, totalDepartments: deptCount[0].total, statusCounts });
+  } catch (err) { return res.status(500).json({ error: err.message }); }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.execute(
