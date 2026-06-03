@@ -1,63 +1,100 @@
 import { useState, useEffect } from 'react';
-import api from '../api/axios';
+import api from '../api';
+import { Plus, Pencil, Trash2, Building2, X, Check } from 'lucide-react';
 
 export default function Departments() {
   const [departments, setDepartments] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editDept, setEditDept] = useState(null);
   const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const load = async () => { const res = await api.get('/departments'); setDepartments(res.data); };
-  useEffect(() => { load(); }, []);
+  const fetch = () => api.get('/departments').then(r => setDepartments(r.data)).catch(() => {});
+  useEffect(() => { fetch(); }, []);
 
-  const reset = () => { setName(''); setEditId(null); setShowForm(false); };
+  const openAdd = () => { setEditDept(null); setName(''); setShowModal(true); };
+  const openEdit = (d) => { setEditDept(d); setName(d.DepartName); setShowModal(true); };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSave = async () => {
     if (!name.trim()) return;
+    setLoading(true);
     try {
-      if (editId) await api.put(`/departments/${editId}`, { DepartName: name });
-      else await api.post('/departments', { DepartName: name });
-      reset(); load();
-    } catch (err) { alert(err.response?.data?.error || 'Error'); }
+      if (editDept) {
+        await api.put(`/departments/${editDept.DeptID}`, { DepartName: name });
+      } else {
+        await api.post('/departments', { DepartName: name });
+      }
+      setShowModal(false); fetch();
+    } catch (err) { alert(err.response?.data?.message || 'Error'); }
+    finally { setLoading(false); }
   };
 
-  const handleEdit = (d) => { setName(d.DepartName); setEditId(d.DepartID); setShowForm(true); };
-  const handleDelete = async (id) => { if (!confirm('Delete this department?')) return; await api.delete(`/departments/${id}`); load(); };
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this department?')) return;
+    try { await api.delete(`/departments/${id}`); fetch(); }
+    catch (err) { alert(err.response?.data?.message || 'Delete failed'); }
+  };
 
-  return (
-    <div>
-      <div className="action-bar">
-        <h4 className="page-title" style={{ border: 'none', padding: 0, margin: 0 }}><i className="bi bi-diagram-3 me-2"></i>Departments</h4>
-        <button className="btn btn-primary" onClick={() => { reset(); setShowForm(!showForm); }}>
-          <i className={`bi ${showForm ? 'bi-x' : 'bi-plus-lg'} me-1`}></i>{showForm ? 'Cancel' : 'Add Department'}
-        </button>
-      </div>
-      {showForm && (
-        <form onSubmit={handleSubmit} className="mb-3">
-          <div className="input-group">
-            <input className="form-control" placeholder="Department name" value={name} onChange={e => setName(e.target.value)} required />
-            <button className="btn btn-success" type="submit"><i className={`bi ${editId ? 'bi-check2' : 'bi-plus-lg'} me-1`}></i>{editId ? 'Update' : 'Create'}</button>
-          </div>
-        </form>
-      )}
-      <div className="table-responsive">
-        <table className="table table-custom">
-          <thead><tr><th>#</th><th>Name</th><th>Employees</th><th>Actions</th></tr></thead>
-          <tbody>
-            {departments.map(d => (
-              <tr key={d.DepartID}>
-                <td>{d.DepartID}</td><td><strong>{d.DepartName}</strong></td><td>{d.EmpCount}</td>
-                <td>
-                  <button className="btn btn-sm btn-warning me-1" onClick={() => handleEdit(d)}><i className="bi bi-pencil"></i></button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(d.DepartID)}><i className="bi bi-trash"></i></button>
-                </td>
-              </tr>
-            ))}
-            {departments.length === 0 && <tr><td colSpan={4}><div className="empty-state"><i className="bi bi-diagram-3"></i>No departments</div></td></tr>}
-          </tbody>
-        </table>
+  const Modal = ({ children }) => (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1050}} onClick={() => setShowModal(false)}>
+      <div style={{background:'#fff',borderRadius:'1rem',padding:'1.5rem',width:'100%',maxWidth:'420px',boxShadow:'0 25px 50px -12px rgba(0,0,0,0.25)'}} onClick={e => e.stopPropagation()}>
+        {children}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 style={{margin:0,fontWeight:600}}>Departments</h5>
+        <button className="btn" style={{background:'#3b82f6',color:'#fff',borderRadius:'0.5rem',fontWeight:500,fontSize:'0.9rem',padding:'0.5rem 1rem',display:'flex',alignItems:'center',gap:'0.4rem'}} onClick={openAdd}>
+          <Plus size={16} /> Add
+        </button>
+      </div>
+
+      <div className="card-dash" style={{overflow:'hidden'}}>
+        {departments.length === 0 ? (
+          <div className="text-center text-muted py-4">No departments yet.</div>
+        ) : (
+          <table className="table table-dash">
+            <thead>
+              <tr>
+                <th style={{width:'60px'}}>#</th>
+                <th>Department Name</th>
+                <th style={{width:'90px'}}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {departments.map((d, i) => (
+                <tr key={d.DeptID}>
+                  <td className="text-muted">{i + 1}</td>
+                  <td><Building2 size={14} style={{color:'#64748b',marginRight:'0.5rem',verticalAlign:'middle'}} />{d.DepartName}</td>
+                  <td>
+                    <div className="d-flex gap-1">
+                      <button className="btn-action edit" onClick={() => openEdit(d)}><Pencil size={14} /></button>
+                      <button className="btn-action delete" onClick={() => handleDelete(d.DeptID)}><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <Modal>
+          <h6 style={{fontWeight:600,marginBottom:'1rem'}}>{editDept ? 'Edit Department' : 'Add Department'}</h6>
+          <label className="form-label">Department Name</label>
+          <input type="text" className="form-control" value={name} onChange={e => setName(e.target.value)} autoFocus />
+          <div className="d-flex gap-2 mt-3 justify-content-end">
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => setShowModal(false)} style={{borderRadius:'0.5rem',display:'flex',alignItems:'center',gap:'0.25rem'}}><X size={14} /> Cancel</button>
+            <button className="btn btn-sm" disabled={loading} onClick={handleSave} style={{background:'#3b82f6',color:'#fff',borderRadius:'0.5rem',display:'flex',alignItems:'center',gap:'0.25rem'}}>
+              {loading ? <span className="spinner-border spinner-border-sm" /> : <Check size={14} />} Save
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }

@@ -1,109 +1,140 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/axios';
+import { Link, useNavigate } from 'react-router-dom';
+import api from '../api';
+import { Building2, ArrowLeft, ShieldCheck, KeyRound, CheckCircle } from 'lucide-react';
 
 export default function ForgotPassword() {
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState('');
-  const [secId, setSecId] = useState(null);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
-  const [userId, setUserId] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleGetQuestion = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    setError(''); setMessage('');
+    if (!username.trim()) { setError('Enter your username'); return; }
+    setLoading(true);
     try {
-      const res = await api.get(`/auth/security-question/${username}`);
-      setSecId(res.data.secId);
+      const res = await api.post('/auth/security-question', { username });
       setQuestion(res.data.question);
       setStep(2);
     } catch (err) {
-      setError(err.response?.data?.error || 'Username not found');
-    }
+      setError(err.response?.data?.message || 'Username not found');
+    } finally { setLoading(false); }
   };
 
   const handleVerifyAnswer = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    setError(''); setMessage('');
+    if (!answer.trim()) { setError('Enter the answer'); return; }
+    setLoading(true);
     try {
-      const res = await api.post('/auth/verify-answer', { secId, answer });
-      setUserId(res.data.userId);
-      setMessage('Answer verified! Set a new password.');
+      await api.post('/auth/verify-answer', { username, answer });
       setStep(3);
     } catch (err) {
-      setError(err.response?.data?.error || 'Incorrect answer');
-    }
+      setError(err.response?.data?.message || 'Incorrect answer');
+    } finally { setLoading(false); }
   };
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    setError(''); setMessage('');
+    if (!newPassword.trim()) { setError('Enter a new password'); return; }
+    setLoading(true);
     try {
-      await api.post('/auth/reset-password', { userId, newPassword });
-      setMessage('Password reset successful! Redirecting...');
+      await api.post('/auth/reset-password', { username, answer, newPassword });
+      setMessage('Password reset successfully!');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Reset failed');
-    }
+      setError(err.response?.data?.message || 'Reset failed');
+    } finally { setLoading(false); }
   };
 
+  const stepIndicator = (num) => (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem',marginBottom:'1.5rem'}}>
+      {[1,2,3].map(s => (
+        <div key={s} style={{
+          width:'32px',height:'32px',borderRadius:'50%',
+          display:'flex',alignItems:'center',justifyContent:'center',
+          fontWeight:600,fontSize:'0.85rem',
+          background: step >= s ? '#3b82f6' : '#e2e8f0',
+          color: step >= s ? '#fff' : '#94a3b8',
+          transition:'all .2s'
+        }}>{s}</div>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="container">
-      <div className="row justify-content-center mt-5">
-        <div className="col-md-5">
-          <div className="card shadow">
-            <div className="card-header"><i className="bi bi-key me-2"></i>Password Recovery</div>
-            <div className="card-body p-4">
-              {error && <div className="alert alert-danger py-2"><i className="bi bi-exclamation-triangle me-2"></i>{error}</div>}
-              {message && <div className="alert alert-success py-2"><i className="bi bi-check-circle me-2"></i>{message}</div>}
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="logo-icon">
+          <Building2 />
+          <span>DAB HRMS</span>
+        </div>
+        <h4>Reset Password</h4>
+        <p className="text-muted">Follow the steps to reset your password</p>
 
-              {step === 1 && (
-                <form onSubmit={handleGetQuestion}>
-                  <div className="mb-3">
-                    <label className="form-label"><i className="bi bi-person me-1"></i>Username</label>
-                    <input className="form-control" placeholder="Enter your username" value={username} onChange={e => setUsername(e.target.value)} required />
-                  </div>
-                  <button type="submit" className="btn btn-primary w-100"><i className="bi bi-question-lg me-1"></i>Get Security Question</button>
-                </form>
-              )}
+        {stepIndicator(step)}
 
-              {step === 2 && (
-                <form onSubmit={handleVerifyAnswer}>
-                  <div className="mb-3">
-                    <label className="form-label fw-bold"><i className="bi bi-shield-question me-1"></i>Security Question</label>
-                    <div className="alert alert-info">{question}</div>
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">Your Answer</label>
-                    <input className="form-control" placeholder="Type your answer" value={answer} onChange={e => setAnswer(e.target.value)} required />
-                  </div>
-                  <button type="submit" className="btn btn-primary w-100"><i className="bi bi-check2 me-1"></i>Verify Answer</button>
-                </form>
-              )}
+        {error && <div className="alert alert-danger py-2 small">{error}</div>}
+        {message && <div className="alert alert-success py-2 small d-flex align-items-center gap-2"><CheckCircle size={16} />{message}</div>}
 
-              {step === 3 && (
-                <form onSubmit={handleResetPassword}>
-                  <div className="mb-3">
-                    <label className="form-label"><i className="bi bi-lock me-1"></i>New Password</label>
-                    <input type="password" className="form-control" placeholder="Min 4 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={4} />
-                  </div>
-                  <button type="submit" className="btn btn-success w-100"><i className="bi bi-arrow-clockwise me-1"></i>Reset Password</button>
-                </form>
-              )}
-
-              <div className="text-center mt-3">
-                <Link to="/login" className="text-decoration-none"><i className="bi bi-arrow-left me-1"></i>Back to Login</Link>
-              </div>
+        {step === 1 && (
+          <form onSubmit={handleGetQuestion}>
+            <div className="mb-3">
+              <label className="form-label">Username</label>
+              <input type="text" className="form-control" placeholder="Enter your username" value={username} onChange={e => setUsername(e.target.value)} autoFocus />
             </div>
-          </div>
+            <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+              {loading ? <span className="spinner-border spinner-border-sm" /> : <ShieldCheck size={16} style={{marginRight:'0.35rem',verticalAlign:'middle'}} />}
+              Get Security Question
+            </button>
+          </form>
+        )}
+
+        {step === 2 && (
+          <form onSubmit={handleVerifyAnswer}>
+            <div className="mb-3">
+              <label className="form-label">Security Question</label>
+              <input type="text" className="form-control" value={question} disabled style={{background:'#f1f5f9'}} />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Your Answer</label>
+              <input type="text" className="form-control" placeholder="Enter your answer" value={answer} onChange={e => setAnswer(e.target.value)} autoFocus />
+            </div>
+            <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+              {loading ? <span className="spinner-border spinner-border-sm" /> : <KeyRound size={16} style={{marginRight:'0.35rem',verticalAlign:'middle'}} />}
+              Verify Answer
+            </button>
+          </form>
+        )}
+
+        {step === 3 && (
+          <form onSubmit={handleResetPassword}>
+            <div className="mb-3">
+              <label className="form-label">New Password</label>
+              <input type="password" className="form-control" placeholder="Enter new password" value={newPassword} onChange={e => setNewPassword(e.target.value)} autoFocus />
+            </div>
+            <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+              {loading ? <span className="spinner-border spinner-border-sm" /> : <KeyRound size={16} style={{marginRight:'0.35rem',verticalAlign:'middle'}} />}
+              Reset Password
+            </button>
+          </form>
+        )}
+
+        <div className="text-center mt-3">
+          <Link to="/login" className="text-decoration-none small" style={{color:'#3b82f6',display:'inline-flex',alignItems:'center',gap:'0.25rem'}}>
+            <ArrowLeft size={14} /> Back to Login
+          </Link>
+        </div>
+        <div className="text-center mt-1">
+          <Link to="/" className="text-decoration-none small text-muted">Back to Home</Link>
         </div>
       </div>
     </div>

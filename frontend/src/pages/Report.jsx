@@ -1,66 +1,66 @@
 import { useState, useEffect } from 'react';
-import api from '../api/axios';
+import api from '../api';
+import { FileText, Printer, Users } from 'lucide-react';
 
 export default function Report() {
-  const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [report, setReport] = useState([]);
 
   useEffect(() => {
-    api.get('/reports/employees-on-leave').then(res => {
-      setReport(res.data);
-    }).catch(() => {}).finally(() => setLoading(false));
+    api.get('/reports/employees-on-leave').then(r => {
+      const data = r.data?.departments || {};
+      setReport(Object.keys(data).map(name => ({ DepartName: name, employees: data[name] })));
+    }).catch(() => {});
   }, []);
 
-  if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary"></div><p className="mt-2 text-muted">Loading report...</p></div>;
-
   return (
-    <div>
-      <div className="action-bar">
-        <h4 className="page-title" style={{ border: 'none', padding: 0, margin: 0 }}><i className="bi bi-file-earmark-text me-2"></i>Employee Status Report — On Leave</h4>
-        <button className="btn btn-outline-secondary" onClick={() => window.print()}>
-          <i className="bi bi-printer me-1"></i>Print
+    <>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 style={{margin:0,fontWeight:600}}>Employees on Leave Report</h5>
+        <button className="btn" style={{background:'#0f172a',color:'#fff',borderRadius:'0.5rem',fontWeight:500,fontSize:'0.9rem',padding:'0.5rem 1rem',display:'flex',alignItems:'center',gap:'0.4rem'}} onClick={() => window.print()}>
+          <Printer size={16} /> Print
         </button>
       </div>
 
-      <div className="alert alert-info d-flex align-items-center gap-2 py-2">
-        <i className="bi bi-info-circle"></i>
-        <strong>Total employees on leave: {report?.total || 0}</strong>
-      </div>
-
-      {report && Object.keys(report.departments).length === 0 && (
-        <div className="alert alert-warning"><i className="bi bi-exclamation-triangle me-2"></i>No employees are currently on leave.</div>
-      )}
-
-      {report && Object.entries(report.departments).map(([dept, employees]) => (
-        <div className="card mb-3" key={dept}>
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <span><i className="bi bi-diagram-3 me-2"></i>{dept}</span>
-            <span className="badge bg-primary rounded-pill">{employees.length}</span>
-          </div>
-          <div className="card-body p-0">
-            <table className="table table-custom mb-0">
-              <thead>
-                <tr>
-                  <th>#</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>Email</th><th>Phone</th><th>Position</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map(e => (
-                  <tr key={e.EmpID}>
-                    <td>{e.EmpID}</td>
-                    <td>{e.EmpFirstName}</td>
-                    <td>{e.EmpLastName}</td>
-                    <td>{e.EmpGender}</td>
-                    <td>{e.EmpEmail}</td>
-                    <td>{e.EmpTelephone}</td>
-                    <td>{e.PosName}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {report.length === 0 ? (
+        <div className="card-dash p-4 text-center text-muted">
+          <FileText size={32} style={{marginBottom:'0.5rem',opacity:0.3}} />
+          <p className="mb-0">No employees currently on leave.</p>
         </div>
-      ))}
-    </div>
+      ) : (
+        report.map((dept) => (
+          <div key={dept.DepartName} className="card-dash mb-3" style={{overflow:'hidden'}}>
+            <div className="px-3 py-2" style={{background:'#f8fafc',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',gap:'0.5rem'}}>
+              <Users size={16} style={{color:'#3b82f6'}} />
+              <span style={{fontWeight:600}}>{dept.DepartName}</span>
+              <span className="badge" style={{background:'#dbeafe',color:'#2563eb',marginLeft:'auto'}}>{dept.employees?.length || 0} on leave</span>
+            </div>
+            {dept.employees?.length > 0 ? (
+              <table className="table table-dash">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dept.employees.map(emp => (
+                    <tr key={emp.EmpID}>
+                      <td style={{fontWeight:500}}>{emp.EmpFirstName} {emp.EmpLastName}</td>
+                      <td>{emp.PosName || '-'}</td>
+                      <td>{emp.EmpEmail}</td>
+                      <td><span className="badge-status" style={{background:'#fef3c7',color:'#92400e'}}>{emp.EmpStatus}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-muted small px-3 py-2 mb-0">No employees on leave in this department.</p>
+            )}
+          </div>
+        ))
+      )}
+    </>
   );
 }

@@ -1,154 +1,145 @@
 import { useState, useEffect } from 'react';
+import api from '../api';
+import {
+  Users, Building2, Briefcase, UserCheck, UserX, Clock, AlertTriangle,
+  Skull, MapPin, TrendingUp, ArrowRight
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
 
-const statusColors = {
-  'On mission': 'bg-success',
-  'On leave': 'bg-warning text-dark',
-  'Left': 'bg-secondary',
-  'Blacklisted': 'bg-dark',
-  'Deceased': 'bg-danger'
+const statusConfig = {
+  'On leave': { icon: Clock, color: '#f59e0b', bg: '#fef3c7' },
+  'Left': { icon: UserX, color: '#ef4444', bg: '#fee2e2' },
+  'Blacklisted': { icon: AlertTriangle, color: '#ec4899', bg: '#fce7f3' },
+  'Deceased': { icon: Skull, color: '#64748b', bg: '#e2e8f0' },
+  'On mission': { icon: MapPin, color: '#3b82f6', bg: '#dbeafe' },
+  'Active': { icon: UserCheck, color: '#10b981', bg: '#d1fae5' },
 };
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const [stats, setStats] = useState({ employees: 0, departments: 0, positions: 0, users: 0 });
-  const [statusCounts, setStatusCounts] = useState([]);
-  const [deptCounts, setDeptCounts] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [recentEmployees, setRecentEmployees] = useState([]);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/employees'),
-      api.get('/departments'),
-      api.get('/positions'),
-      api.get('/users'),
-      api.get('/reports/employee-count-by-status'),
-      api.get('/reports/employee-count-by-department')
-    ]).then(([emp, dept, pos, users, status, deptCnt]) => {
-      setStats({
-        employees: emp.data.length,
-        departments: dept.data.length,
-        positions: pos.data.length,
-        users: users.data.length
-      });
-      setStatusCounts(status.data);
-      setDeptCounts(deptCnt.data);
-    }).catch(() => {});
+    api.get('/employees/stats').then(r => setStats(r.data)).catch(() => {});
+    api.get('/employees?limit=5').then(r => setRecentEmployees(r.data.employees || r.data)).catch(() => {});
   }, []);
 
+  const statusStats = stats?.statusCounts || {};
+
   return (
-    <div>
-      <div className="welcome-banner">
-        <div className="d-flex justify-content-between align-items-center">
-          <div>
-            <h3><i className="bi bi-house-fill me-2"></i>Welcome, {user?.name || 'User'}!</h3>
-            <p>DAB Enterprise LTD — Human Resource Management System</p>
-          </div>
-          <i className="bi bi-buildings" style={{ fontSize: '3.5rem', opacity: 0.3 }}></i>
-        </div>
+    <>
+      {/* Welcome */}
+      <div className="card-dash p-4 mb-4" style={{background:'linear-gradient(135deg,#0f172a,#1e3a5f)',color:'#fff'}}>
+        <h4 style={{fontWeight:700}}>Welcome to DAB HRMS</h4>
+        <p className="mb-0" style={{color:'#94a3b8'}}>Your centralized human resource management platform.</p>
       </div>
 
+      {/* Stat Cards */}
       <div className="row g-3 mb-4">
-        <div className="col-6 col-md-3">
-          <Link to="/employees" className="text-decoration-none">
-            <div className="stat-card bg-card-blue">
-              <i className="bi bi-people stat-icon"></i>
-              <div className="stat-number">{stats.employees}</div>
-              <div className="stat-label">Total Employees</div>
-              <span className="stat-link">View details &rarr;</span>
+        <div className="col-md-3 col-6">
+          <div className="card-dash stat-card">
+            <div className="stat-icon" style={{background:'#dbeafe'}}><Users size={22} style={{color:'#2563eb'}} /></div>
+            <div className="stat-info">
+              <h3 style={{color:'#1e293b'}}>{stats?.totalEmployees ?? '-'}</h3>
+              <p>Total Employees</p>
             </div>
-          </Link>
+          </div>
         </div>
-        <div className="col-6 col-md-3">
-          <Link to="/departments" className="text-decoration-none">
-            <div className="stat-card bg-card-green">
-              <i className="bi bi-diagram-3 stat-icon"></i>
-              <div className="stat-number">{stats.departments}</div>
-              <div className="stat-label">Departments</div>
-              <span className="stat-link">View details &rarr;</span>
+        <div className="col-md-3 col-6">
+          <div className="card-dash stat-card">
+            <div className="stat-icon" style={{background:'#d1fae5'}}><UserCheck size={22} style={{color:'#059669'}} /></div>
+            <div className="stat-info">
+              <h3 style={{color:'#1e293b'}}>{statusStats['Active'] ?? 0}</h3>
+              <p>Active</p>
             </div>
-          </Link>
+          </div>
         </div>
-        <div className="col-6 col-md-3">
-          <Link to="/positions" className="text-decoration-none">
-            <div className="stat-card bg-card-orange">
-              <i className="bi bi-briefcase stat-icon"></i>
-              <div className="stat-number">{stats.positions}</div>
-              <div className="stat-label">Positions</div>
-              <span className="stat-link">View details &rarr;</span>
+        <div className="col-md-3 col-6">
+          <div className="card-dash stat-card">
+            <div className="stat-icon" style={{background:'#fef3c7'}}><Clock size={22} style={{color:'#d97706'}} /></div>
+            <div className="stat-info">
+              <h3 style={{color:'#1e293b'}}>{(statusStats['On leave'] ?? 0) + (statusStats['On mission'] ?? 0)}</h3>
+              <p>On Leave/Mission</p>
             </div>
-          </Link>
+          </div>
         </div>
-        <div className="col-6 col-md-3">
-          <Link to="/users" className="text-decoration-none">
-            <div className="stat-card bg-card-purple">
-              <i className="bi bi-person-badge stat-icon"></i>
-              <div className="stat-number">{stats.users}</div>
-              <div className="stat-label">System Users</div>
-              <span className="stat-link">View details &rarr;</span>
+        <div className="col-md-3 col-6">
+          <div className="card-dash stat-card">
+            <div className="stat-icon" style={{background:'#e2e8f0'}}><Building2 size={22} style={{color:'#475569'}} /></div>
+            <div className="stat-info">
+              <h3 style={{color:'#1e293b'}}>{stats?.totalDepartments ?? '-'}</h3>
+              <p>Departments</p>
             </div>
-          </Link>
+          </div>
         </div>
       </div>
 
       <div className="row g-3">
+        {/* Status Breakdown */}
         <div className="col-md-6">
-          <div className="card h-100">
-            <div className="card-header"><i className="bi bi-pie-chart me-2"></i>Employees by Status</div>
-            <div className="card-body">
-              <table className="table table-custom mb-0">
-                <thead><tr><th>Status</th><th>Count</th></tr></thead>
-                <tbody>
-                  {statusCounts.map(s => (
-                    <tr key={s.EmpStatus}>
-                      <td><span className={`badge-status ${statusColors[s.EmpStatus] || 'bg-secondary'}`}>{s.EmpStatus}</span></td>
-                      <td><strong>{s.count}</strong></td>
-                    </tr>
-                  ))}
-                  {statusCounts.length === 0 && <tr><td colSpan={2} className="empty-state py-3">No data</td></tr>}
-                </tbody>
-              </table>
-            </div>
+          <div className="card-dash p-3">
+            <h6 style={{fontWeight:600,fontSize:'0.95rem',marginBottom:'1rem'}}>Employee Status Overview</h6>
+            {Object.entries(statusConfig).map(([status, cfg]) => {
+              const Icon = cfg.icon;
+              const count = statusStats[status] || 0;
+              const total = stats?.totalEmployees || 1;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={status} className="d-flex align-items-center mb-2">
+                  <div className="stat-icon" style={{width:'36px',height:'36px',borderRadius:'8px',background:cfg.bg,marginRight:'0.75rem'}}>
+                    <Icon size={16} style={{color:cfg.color}} />
+                  </div>
+                  <div style={{flex:1}}>
+                    <div className="d-flex justify-content-between small">
+                      <span style={{fontWeight:500}}>{status}</span>
+                      <span style={{fontWeight:600}}>{count}</span>
+                    </div>
+                    <div className="progress" style={{height:'5px',background:'#e2e8f0',borderRadius:'3px',marginTop:'3px'}}>
+                      <div className="progress-bar" style={{width:`${pct}%`,background:cfg.color,borderRadius:'3px'}} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-        <div className="col-md-6">
-          <div className="card h-100">
-            <div className="card-header"><i className="bi bi-bar-chart me-2"></i>Employees by Department</div>
-            <div className="card-body">
-              <table className="table table-custom mb-0">
-                <thead><tr><th>Department</th><th>Count</th></tr></thead>
-                <tbody>
-                  {deptCounts.map(d => (
-                    <tr key={d.DepartName}><td>{d.DepartName}</td><td><strong>{d.count}</strong></td></tr>
-                  ))}
-                  {deptCounts.length === 0 && <tr><td colSpan={2} className="empty-state py-3">No data</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="card mt-3">
-        <div className="card-header"><i className="bi bi-lightning-charge me-2"></i>Quick Actions</div>
-        <div className="card-body">
-          <div className="row g-2">
-            <div className="col-6 col-md-3">
-              <Link to="/employees/new" className="btn btn-outline-primary w-100"><i className="bi bi-person-plus me-1"></i> Add Employee</Link>
+        {/* Recent Employees */}
+        <div className="col-md-6">
+          <div className="card-dash p-3">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h6 style={{fontWeight:600,fontSize:'0.95rem',margin:0}}>Recent Employees</h6>
+              <Link to="/employees" className="text-decoration-none small" style={{color:'#3b82f6',display:'flex',alignItems:'center',gap:'0.25rem'}}>
+                View All <ArrowRight size={14} />
+              </Link>
             </div>
-            <div className="col-6 col-md-3">
-              <Link to="/departments" className="btn btn-outline-success w-100"><i className="bi bi-diagram-3 me-1"></i> Departments</Link>
-            </div>
-            <div className="col-6 col-md-3">
-              <Link to="/positions" className="btn btn-outline-warning w-100"><i className="bi bi-briefcase me-1"></i> Positions</Link>
-            </div>
-            <div className="col-6 col-md-3">
-              <Link to="/report" className="btn btn-outline-info w-100"><i className="bi bi-file-text me-1"></i> View Report</Link>
-            </div>
+            {recentEmployees.length === 0 ? (
+              <p className="text-muted small mb-0">No employees found.</p>
+            ) : (
+              <div style={{maxHeight:'300px',overflowY:'auto'}}>
+                {recentEmployees.map(emp => {
+                  const cfg = statusConfig[emp.EmpStatus] || statusConfig['Active'];
+                  const Icon = cfg.icon;
+                  return (
+                    <div key={emp.EmpID} className="d-flex align-items-center py-2" style={{borderBottom:'1px solid #f1f5f9'}}>
+                      <div className="sidebar-avatar" style={{width:'34px',height:'34px',fontSize:'0.8rem',marginRight:'0.75rem'}}>
+                        {emp.EmpFirstName?.charAt(0)}{emp.EmpLastName?.charAt(0)}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:500,fontSize:'0.9rem'}}>{emp.EmpFirstName} {emp.EmpLastName}</div>
+                        <div className="text-muted" style={{fontSize:'0.8rem'}}>{emp.EmpEmail}</div>
+                      </div>
+                      <span className="badge-status" style={{background:cfg.bg,color:cfg.color,display:'flex',alignItems:'center',gap:'0.25rem'}}>
+                        <Icon size={10} /> {emp.EmpStatus}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

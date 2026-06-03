@@ -1,84 +1,125 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api/axios';
+import api from '../api';
+import {
+  Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight,
+  Clock, UserX, AlertTriangle, Skull, MapPin, UserCheck, Eye
+} from 'lucide-react';
 
+const statusIcons = {
+  'Active': UserCheck, 'On leave': Clock, 'Left': UserX,
+  'Blacklisted': AlertTriangle, 'Deceased': Skull, 'On mission': MapPin,
+};
 const statusColors = {
-  'On mission': 'bg-success',
-  'On leave': 'bg-warning text-dark',
-  'Left': 'bg-secondary',
-  'Blacklisted': 'bg-dark',
-  'Deceased': 'bg-danger'
+  'Active': '#10b981', 'On leave': '#f59e0b', 'Left': '#ef4444',
+  'Blacklisted': '#ec4899', 'Deceased': '#64748b', 'On mission': '#3b82f6',
+};
+const statusBgs = {
+  'Active': '#d1fae5', 'On leave': '#fef3c7', 'Left': '#fee2e2',
+  'Blacklisted': '#fce7f3', 'Deceased': '#e2e8f0', 'On mission': '#dbeafe',
 };
 
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 10;
 
-  const load = async (q = '') => {
-    try {
-      const res = await api.get('/employees', { params: q ? { search: q } : {} });
-      setEmployees(res.data);
-    } catch { alert('Failed to load employees'); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    api.get(`/employees?search=${search}&page=${page}&limit=${limit}`)
+      .then(r => {
+        setEmployees(r.data.employees || r.data);
+        setTotal(r.data.total || r.data.length || 0);
+      }).catch(() => {});
+  }, [search, page]);
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this employee?')) return;
-    await api.delete(`/employees/${id}`);
-    load(search);
+    try {
+      await api.delete(`/employees/${id}`);
+      setEmployees(prev => prev.filter(e => e.EmpID !== id));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Delete failed');
+    }
   };
 
-  if (loading) return <div className="text-center mt-5"><div className="spinner-border text-primary"></div></div>;
+  const totalPages = Math.ceil(total / limit);
 
   return (
-    <div>
-      <div className="action-bar">
-        <h4 className="page-title" style={{ border: 'none', padding: 0, margin: 0 }}><i className="bi bi-people me-2"></i>Employees</h4>
-        <Link to="/employees/new" className="btn btn-primary"><i className="bi bi-person-plus me-1"></i>Add Employee</Link>
-      </div>
-
-      <form className="mb-3" onSubmit={e => { e.preventDefault(); load(search); }}>
-        <div className="input-group">
-          <span className="input-group-text"><i className="bi bi-search"></i></span>
-          <input className="form-control" placeholder="Search by name, email or phone..." value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn btn-outline-primary" type="submit">Search</button>
-          {search && <button className="btn btn-outline-danger" type="button" onClick={() => { setSearch(''); load(); }}>Clear</button>}
+    <>
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <div style={{position:'relative',maxWidth:'300px',width:'100%'}}>
+          <Search size={16} style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',color:'#94a3b8'}} />
+          <input
+            type="text" className="form-control" placeholder="Search employees..."
+            style={{paddingLeft:'32px',borderRadius:'0.5rem',border:'1.5px solid #e2e8f0',fontSize:'0.9rem'}}
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+          />
         </div>
-      </form>
-
-      <div className="table-responsive">
-        <table className="table table-custom">
-          <thead>
-            <tr>
-              <th>#</th><th>Name</th><th>Gender</th><th>Email</th><th>Phone</th><th>Status</th><th>Department</th><th>Position</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map(e => (
-              <tr key={e.EmpID}>
-                <td>{e.EmpID}</td>
-                <td><strong>{e.EmpFirstName} {e.EmpLastName}</strong></td>
-                <td>{e.EmpGender}</td>
-                <td>{e.EmpEmail}</td>
-                <td>{e.EmpTelephone}</td>
-                <td><span className={`badge-status ${statusColors[e.EmpStatus] || 'bg-secondary'}`}>{e.EmpStatus}</span></td>
-                <td>{e.DepartName}</td>
-                <td>{e.PosName}</td>
-                <td>
-                  <Link to={`/employees/${e.EmpID}`} className="btn btn-sm btn-warning me-1"><i className="bi bi-pencil"></i></Link>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(e.EmpID)}><i className="bi bi-trash"></i></button>
-                </td>
-              </tr>
-            ))}
-            {employees.length === 0 && (
-              <tr><td colSpan={9}><div className="empty-state"><i className="bi bi-people"></i>No employees found</div></td></tr>
-            )}
-          </tbody>
-        </table>
+        <Link to="/employees/new" className="btn" style={{background:'#3b82f6',color:'#fff',borderRadius:'0.5rem',fontWeight:500,fontSize:'0.9rem',padding:'0.5rem 1rem',display:'flex',alignItems:'center',gap:'0.4rem'}}>
+          <Plus size={16} /> Add Employee
+        </Link>
       </div>
-    </div>
+
+      <div className="card-dash" style={{overflow:'hidden'}}>
+        <div style={{overflowX:'auto'}}>
+          <table className="table table-dash">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Gender</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th style={{width:'90px'}}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.length === 0 && (
+                <tr><td colSpan={6} className="text-center text-muted py-4">No employees found.</td></tr>
+              )}
+              {employees.map(emp => {
+                const Icon = statusIcons[emp.EmpStatus] || UserCheck;
+                const sColor = statusColors[emp.EmpStatus] || '#64748b';
+                const sBg = statusBgs[emp.EmpStatus] || '#e2e8f0';
+                return (
+                  <tr key={emp.EmpID}>
+                    <td style={{fontWeight:500}}>{emp.EmpFirstName} {emp.EmpLastName}</td>
+                    <td>{emp.EmpGender}</td>
+                    <td>{emp.EmpEmail}</td>
+                    <td>{emp.EmpTelephone || '-'}</td>
+                    <td>
+                      <span className="badge-status" style={{background:sBg,color:sColor,display:'inline-flex',alignItems:'center',gap:'0.25rem'}}>
+                        <Icon size={11} /> {emp.EmpStatus}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="d-flex gap-1">
+                        <Link to={`/employees/${emp.EmpID}`} className="btn-action edit"><Pencil size={14} /></Link>
+                        <button className="btn-action delete" onClick={() => handleDelete(emp.EmpID)}><Trash2 size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {totalPages > 1 && (
+          <div className="d-flex justify-content-between align-items-center px-3 py-2" style={{borderTop:'1px solid #e2e8f0'}}>
+            <small className="text-muted">Page {page} of {totalPages}</small>
+            <div className="d-flex gap-1">
+              <button className="btn btn-sm btn-outline-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                <ChevronLeft size={16} />
+              </button>
+              <button className="btn btn-sm btn-outline-secondary" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
