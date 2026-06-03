@@ -7,13 +7,17 @@ router.use(requireAuth);
 
 router.get('/employees-on-leave', async (req, res) => {
   try {
+    const { status } = req.query;
+    const statuses = status ? status.split(',') : ['On leave'];
+    const placeholders = statuses.map(() => '?').join(',');
     const [rows] = await pool.execute(
       `SELECT e.*, d.DepartName, p.PosName 
        FROM Employee e 
        LEFT JOIN Department d ON e.DepartID = d.DepartID 
        LEFT JOIN \`Position\` p ON e.PosID = p.PosID 
-       WHERE e.EmpStatus = 'On leave' 
-       ORDER BY d.DepartName, e.EmpLastName`
+       WHERE e.EmpStatus IN (${placeholders}) 
+       ORDER BY d.DepartName, e.EmpLastName`,
+      statuses
     );
     const departments = {};
     for (const emp of rows) {
@@ -21,7 +25,7 @@ router.get('/employees-on-leave', async (req, res) => {
       if (!departments[dept]) departments[dept] = [];
       departments[dept].push(emp);
     }
-    return res.json({ departments, total: rows.length });
+    return res.json({ departments, total: rows.length, statuses });
   } catch (err) { return res.status(500).json({ error: err.message }); }
 });
 
