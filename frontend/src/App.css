@@ -1,0 +1,2 @@
+body { background-color: #f5f7fa; }
+@media print { .navbar, .btn { display: none !important; } }
